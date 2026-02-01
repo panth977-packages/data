@@ -2,7 +2,7 @@ import { KeyAxis } from "../col_axis.ts";
 import { FloatDataArray } from "../data_array.ts";
 import { TestBench } from "./_utils.ts";
 
-function runKeyAxisQA() {
+export function runColAxisQA() {
   TestBench.section("KeyAxis Initialization & Expansion");
 
   // 1. Setup a Float-backed KeyAxis
@@ -83,5 +83,3 @@ function runKeyAxisQA() {
 
   TestBench.summary();
 }
-
-runKeyAxisQA();

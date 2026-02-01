@@ -1,7 +1,7 @@
 import { TestBench } from "./_utils.ts";
 import { FlagDataArray, FloatDataArray, StrDataArray } from "../data_array.ts";
 
-function runFullQA() {
+export function runDataArrayQA() {
   // --- FLOAT DATA ARRAY TESTS ---
   TestBench.section("FloatDataArray Logic");
   const fda = new FloatDataArray();
@@ -92,5 +92,3 @@ function runFullQA() {
 
   TestBench.summary();
 }
-
-runFullQA();

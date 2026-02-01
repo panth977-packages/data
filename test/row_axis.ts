@@ -3,7 +3,7 @@ import { FloatDataArray, StrDataArray } from "../data_array.ts";
 import { PredefinedEpochAxis, RelativeEpochAxis } from "../row_axis.ts";
 import { TestBench } from "./_utils.ts";
 
-function runSystemQA() {
+export function runRowAxisQA() {
   TestBench.section("RowAxis Integration (Pre-Allocation Flow)");
 
   // --- 1. Setup ---
@@ -74,5 +74,3 @@ function runSystemQA() {
 
   TestBench.summary();
 }
-
-runSystemQA();

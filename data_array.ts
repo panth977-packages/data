@@ -43,7 +43,7 @@ export class StrDataArray extends DataArr<string> {
   copy(): this {
     return new StrDataArray(this) as this;
   }
-  copyWithin(targetIndex: number, startIndex: number, endIndex: number) {
+  copyWithin(targetIndex: number, startIndex: number, endIndex: number): this {
     this.data.copyWithin(targetIndex, startIndex, endIndex);
     return this;
   }
@@ -54,7 +54,7 @@ export class StrDataArray extends DataArr<string> {
     this.data = data;
     return this;
   }
-  fill(value: string, startIndex?: number, endIndex?: number) {
+  fill(value: string, startIndex?: number, endIndex?: number): this {
     let valIdx = this.indexValMap.get(value)!;
     if (valIdx === undefined) {
       valIdx = this.indexVal.length;

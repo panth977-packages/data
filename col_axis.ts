@@ -54,7 +54,7 @@ export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
     return this;
   }
 
-  toPrettyTable(colWidth = 15) {
+  toPrettyTable(colWidth = 15): string {
     const horizontalBar = "─".repeat(colWidth + 2);
     const topBar = "┌" + Array(this.capacity).fill(horizontalBar).join("┬") +
       "┐";

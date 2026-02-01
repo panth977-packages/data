@@ -157,7 +157,7 @@ export abstract class RowAxis<
     return this.columns[cIdx[0]].getIdAt(cIdx[1]);
   }
 
-  toPrettyTable(colWidth = 15) {
+  toPrettyTable(colWidth = 15): string {
     const topics = Object.keys(this.columns);
     if (topics.length === 0) return "No data available.";
 
@@ -238,20 +238,42 @@ export type RowAxisClass<
 export type EpochAxisOpt = { gte: number; lte: number; gap: number };
 export abstract class EpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   extends RowAxis<number, C> {
-  static readonly minPer = Object.freeze({
+  static readonly minPer: Readonly<{
+    min: 1;
+    hr: 60;
+    day: 1440;
+    week: 10080;
+  }> = Object.freeze({
     min: 1,
     hr: 60,
     day: 1440,
     week: 10080,
   });
-  static readonly secPer = Object.freeze({
+  static readonly secPer: Readonly<
+    {
+      sec: 1;
+      min: 60;
+      hr: 3600;
+      day: 86400;
+      week: 604800;
+    }
+  > = Object.freeze({
     sec: 1,
     min: 60,
     hr: 3600,
     day: 86400,
     week: 604800,
   });
-  static readonly msPer = Object.freeze({
+  static readonly msPer: Readonly<
+    {
+      ms: 1;
+      sec: 1000;
+      min: 60000;
+      hr: 3600000;
+      day: 86400000;
+      week: 604800000;
+    }
+  > = Object.freeze({
     ms: 1,
     sec: 1000,
     min: 60000,

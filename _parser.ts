@@ -1,7 +1,7 @@
 export abstract class Parser<T> {
   // Helper for string encoding/decoding
-  protected static encoder = new TextEncoder();
-  protected static decoder = new TextDecoder();
+  protected static readonly encoder: TextEncoder = new TextEncoder();
+  protected static readonly decoder: TextDecoder = new TextDecoder();
 
   // static toBase64(buff: ArrayBuffer): string {
   //   // Determine environment to choose the fastest native method

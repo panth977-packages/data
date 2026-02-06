@@ -92,9 +92,9 @@ export abstract class RowAxis<
   protected abstract getIds(): IterableIterator<RT>;
   protected abstract getIdIndex(): IterableIterator<number>;
 
-  // protected expandCol<K extends keyof C>(topic: K, add: number) {
-  //   this.columns[topic].expand(add);
-  // }
+  protected expandCol<K extends keyof C>(topic: K, add: number) {
+    this.columns[topic].expand(add);
+  }
 
   rows(type: "[row,rIdx]"): IterableIterator<[RT, number]>;
   rows(type: "row"): IterableIterator<RT>;

@@ -324,6 +324,7 @@ export class GenericParser<T> extends Parser<T> {
       encode(value: T): ArrayBuffer;
       decode(data: ArrayBuffer): T;
       create(value?: T): T;
+      check(value: unknown): value is T;
     },
   ) {
     super();
@@ -341,6 +342,9 @@ export class GenericParser<T> extends Parser<T> {
   }
   copy(value: T): T {
     return this.parser.create(value);
+  }
+  check(value: unknown): value is T {
+    return this.parser.check(value);
   }
 }
 export const Parsers: Readonly<{

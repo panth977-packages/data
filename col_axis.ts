@@ -32,6 +32,12 @@ export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
   ): DC {
     return parser.create();
   }
+  static _check<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    value: unknown,
+  ): value is ColumnAxis<unknown, DC> {
+    return value instanceof ColumnAxis && parser.check(value);
+  }
   constructor(from: ColumnAxis<CT, DC> | DC) {
     if (from instanceof ColumnAxis) {
       this.data = from.data.copy();
@@ -147,7 +153,7 @@ export class KeyAxis<DC extends DataArr<any>> extends ColumnAxis<string, DC> {
     keysAxis.keyMapping = new Map(keysAxis.keys.map((key, idx) => [key, idx]));
     return keysAxis;
   }
-  static create<DC extends DataArr<any>>(
+  protected static create<DC extends DataArr<any>>(
     parser: GenericParser<DC>,
     keysAxis?: KeyAxis<DC>,
   ): KeyAxis<DC> {
@@ -157,6 +163,12 @@ export class KeyAxis<DC extends DataArr<any>> extends ColumnAxis<string, DC> {
       return new KeyAxis(ColumnAxis._create(parser));
     }
   }
+  protected static check<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    value: unknown,
+  ): value is KeyAxis<DC> {
+    return ColumnAxis._check(parser, value) && value instanceof KeyAxis;
+  }
   static parser<DC extends DataArr<any>>(
     parser: GenericParser<DC>,
   ): GenericParser<KeyAxis<DC>> {
@@ -164,6 +176,9 @@ export class KeyAxis<DC extends DataArr<any>> extends ColumnAxis<string, DC> {
       encode: (KeyAxis.encode<DC>).bind(KeyAxis, parser),
       decode: (KeyAxis.decode<DC>).bind(KeyAxis, parser),
       create: (KeyAxis.create<DC>).bind(KeyAxis, parser),
+      check: (KeyAxis.check<DC>).bind(KeyAxis, parser) as GenericParser<
+        KeyAxis<DC>
+      >["check"],
     });
   }
   constructor(from: KeyAxis<DC> | DC) {

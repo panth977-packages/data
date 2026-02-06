@@ -59,6 +59,17 @@ export abstract class RowAxis<
       Object.keys(parser).map((topic) => [topic, parser[topic].create()]),
     ) as never;
   }
+  protected static _check<
+    C extends Record<string, ColumnAxis<any, any>>,
+  >(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    value: unknown,
+  ): value is C {
+    return typeof value === "object" && value !== null &&
+      Object.keys(parser).every((topic) =>
+        topic in value && parser[topic].check((value as C)[topic])
+      );
+  }
   constructor(from: RowAxis<RT, C> | C) {
     if (from instanceof RowAxis) {
       this.columns = { ...from.columns };
@@ -375,7 +386,7 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     }
     return epochAxis;
   }
-  static create<C extends Record<string, ColumnAxis<any, any>>>(
+  protected static create<C extends Record<string, ColumnAxis<any, any>>>(
     parser: { [K in keyof C]: GenericParser<C[K]> },
     relativeEpochAxis?: RelativeEpochAxis<C>,
   ): RelativeEpochAxis<C> {
@@ -385,6 +396,13 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
       return new RelativeEpochAxis(RowAxis._create(parser));
     }
   }
+  protected static check<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    value: unknown,
+  ): value is RelativeEpochAxis<C> {
+    return RowAxis._check(parser, value) &&
+      value instanceof RelativeEpochAxis;
+  }
   static parser<C extends Record<string, ColumnAxis<any, any>>>(
     parser: { [K in keyof C]: GenericParser<C[K]> },
   ): GenericParser<RelativeEpochAxis<C>> {
@@ -392,6 +410,10 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
       encode: (RelativeEpochAxis.encode<C>).bind(RelativeEpochAxis, parser),
       decode: (RelativeEpochAxis.decode<C>).bind(RelativeEpochAxis, parser),
       create: (RelativeEpochAxis.create<C>).bind(RelativeEpochAxis, parser),
+      check: (RelativeEpochAxis.check<C>).bind(
+        RelativeEpochAxis,
+        parser,
+      ) as GenericParser<RelativeEpochAxis<C>>["check"],
     });
   }
   constructor(from: RelativeEpochAxis<C> | C) {
@@ -516,13 +538,14 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   private lastEpochIdxInUse: number; // last epoch
 
   private static id = IdVersionParser.create("RelativeEpochAxis", 1);
+  private static epochParser = FlagDataArray.parser();
   protected static encode<C extends Record<string, ColumnAxis<any, any>>>(
     parser: { [K in keyof C]: GenericParser<C[K]> },
     epochAxis: PredefinedEpochAxis<C>,
   ): ArrayBuffer {
     const firstEpoch = Parsers.Number.encode(epochAxis.firstEpoch);
     const factor = Parsers.Number.encode(epochAxis.factor);
-    const epoch = FlagDataArray.encode(epochAxis.epoch);
+    const epoch = PredefinedEpochAxis.epochParser.encode(epochAxis.epoch);
     const columns = RowAxis._encode(parser, epochAxis);
     return Parsers.ArrayBufferList.encode([
       this.id,
@@ -544,7 +567,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     );
     epochAxis.firstEpoch = Parsers.Number.decode(firstEpoch);
     epochAxis.factor = Parsers.Number.decode(factor);
-    epochAxis.epoch = FlagDataArray.decode(epoch);
+    epochAxis.epoch = PredefinedEpochAxis.epochParser.decode(epoch);
     for (const idx of epochAxis.epoch.getFlagedIdx()) {
       if (epochAxis._used === 0) {
         epochAxis._used = 1;
@@ -557,7 +580,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     }
     return epochAxis;
   }
-  static create<C extends Record<string, ColumnAxis<any, any>>>(
+  protected static create<C extends Record<string, ColumnAxis<any, any>>>(
     parser: { [K in keyof C]: GenericParser<C[K]> },
     relativeEpochAxis?: PredefinedEpochAxis<C>,
   ): PredefinedEpochAxis<C> {
@@ -567,7 +590,14 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
       return new PredefinedEpochAxis(RowAxis._create(parser));
     }
   }
-  static parser<C extends Record<string, ColumnAxis<any, any>>>(
+  protected static check<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    value: unknown,
+  ): value is PredefinedEpochAxis<C> {
+    return RowAxis._check(parser, value) &&
+      value instanceof PredefinedEpochAxis;
+  }
+  protected static parser<C extends Record<string, ColumnAxis<any, any>>>(
     parser: { [K in keyof C]: GenericParser<C[K]> },
   ): GenericParser<PredefinedEpochAxis<C>> {
     return new GenericParser({
@@ -583,6 +613,10 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
         PredefinedEpochAxis,
         parser,
       ),
+      check: PredefinedEpochAxis.check.bind(
+        PredefinedEpochAxis,
+        parser,
+      ) as GenericParser<PredefinedEpochAxis<C>>["check"],
     });
   }
   constructor(from: PredefinedEpochAxis<C> | C) {

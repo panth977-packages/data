@@ -42,12 +42,16 @@ export class StrDataArray extends DataArr<string> {
   protected static create(value?: StrDataArray): StrDataArray {
     return new StrDataArray(value);
   }
+  protected static check(value: unknown): value is StrDataArray {
+    return value instanceof StrDataArray;
+  }
 
   static parser(): GenericParser<StrDataArray> {
-    return new GenericParser({
+    return new GenericParser<StrDataArray>({
       encode: StrDataArray.encode.bind(StrDataArray),
       decode: StrDataArray.decode.bind(StrDataArray),
       create: StrDataArray.create.bind(StrDataArray),
+      check: StrDataArray.check.bind(StrDataArray),
     });
   }
   private static undefined = 65535;
@@ -142,12 +146,16 @@ export class FloatDataArray extends DataArr<number> {
   protected static create(value?: FloatDataArray): FloatDataArray {
     return new FloatDataArray(value);
   }
+  protected static check(value: unknown): value is FloatDataArray {
+    return value instanceof FloatDataArray;
+  }
 
   static parser(): GenericParser<FloatDataArray> {
     return new GenericParser({
       encode: FloatDataArray.encode.bind(FloatDataArray),
       decode: FloatDataArray.decode.bind(FloatDataArray),
       create: FloatDataArray.create.bind(FloatDataArray),
+      check: FloatDataArray.check.bind(FloatDataArray),
     });
   }
   constructor(from?: FloatDataArray) {
@@ -205,12 +213,12 @@ export class FlagDataArray extends DataArr<true> {
   private data: Uint8Array;
   private _length: number;
   private static id: ArrayBuffer = IdVersionParser.create("FlagDataArray", 1);
-  static encode(flag: FlagDataArray): ArrayBuffer {
+  protected static encode(flag: FlagDataArray): ArrayBuffer {
     const data = Parsers.Uint8Array.encode(flag.data);
     const len = Parsers.Number.encode(flag._length);
     return Parsers.ArrayBufferList.encode([this.id, data, len]);
   }
-  static decode(buff: ArrayBuffer): FlagDataArray {
+  protected static decode(buff: ArrayBuffer): FlagDataArray {
     const [id, data, len] = Parsers.ArrayBufferList.decode(buff);
     IdVersionParser.check(id, this.id);
     const flag = new FlagDataArray();
@@ -218,14 +226,18 @@ export class FlagDataArray extends DataArr<true> {
     flag._length = Parsers.Number.decode(len);
     return flag;
   }
-  static create(flag?: FlagDataArray): FlagDataArray {
+  protected static create(flag?: FlagDataArray): FlagDataArray {
     return new FlagDataArray(flag);
+  }
+  protected static check(value: unknown): value is FlagDataArray {
+    return value instanceof FlagDataArray;
   }
   static parser(): GenericParser<FlagDataArray> {
     return new GenericParser({
       encode: FlagDataArray.encode.bind(FlagDataArray),
       decode: FlagDataArray.decode.bind(FlagDataArray),
       create: FlagDataArray.create.bind(FlagDataArray),
+      check: FlagDataArray.check.bind(FlagDataArray),
     });
   }
   constructor(from?: FlagDataArray) {

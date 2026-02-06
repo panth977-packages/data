@@ -597,7 +597,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     return RowAxis._check(parser, value) &&
       value instanceof PredefinedEpochAxis;
   }
-  protected static parser<C extends Record<string, ColumnAxis<any, any>>>(
+  static parser<C extends Record<string, ColumnAxis<any, any>>>(
     parser: { [K in keyof C]: GenericParser<C[K]> },
   ): GenericParser<PredefinedEpochAxis<C>> {
     return new GenericParser({

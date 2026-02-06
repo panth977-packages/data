@@ -1,8 +1,37 @@
+import { GenericParser, IdVersionParser, Parsers } from "./_parser.ts";
 import type { DataArr, inferDTFromDC } from "./data_array.ts";
 
 export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
   protected rowSize: number;
   protected data: DC;
+  private static _id: ArrayBuffer = IdVersionParser.create("ColumnAxis", 1);
+  protected static _encode<CT, DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    columnAxis: ColumnAxis<CT, DC>,
+  ): ArrayBuffer[] {
+    const data = parser.encode(columnAxis.data);
+    const rows = Parsers.Number.encode(columnAxis.rowSize);
+    return [this._id, data, rows];
+  }
+  protected static _decode<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    buff: ArrayBuffer[],
+  ): {
+    rowSize: number;
+    data: DC;
+  } {
+    const [id, data, rows] = buff;
+    IdVersionParser.check(id, this._id);
+    return {
+      data: parser.decode(data),
+      rowSize: Parsers.Number.decode(rows),
+    };
+  }
+  protected static _create<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+  ): DC {
+    return parser.create();
+  }
   constructor(from: ColumnAxis<CT, DC> | DC) {
     if (from instanceof ColumnAxis) {
       this.data = from.data.copy();
@@ -91,6 +120,52 @@ export class KeyAxis<DC extends DataArr<any>> extends ColumnAxis<string, DC> {
   private keyMapping: Map<string, number>;
   private unusedKeyIdx: Array<number>;
   static readonly Undefined: string = "";
+  static id: ArrayBuffer = IdVersionParser.create("KeyAxis", 1);
+  protected static encode<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    keysAxis: KeyAxis<DC>,
+  ): ArrayBuffer {
+    const keys = Parsers.StringList.encode(keysAxis.keys);
+    const col = ColumnAxis._encode(parser, keysAxis);
+    return Parsers.ArrayBufferList.encode([this.id, keys, ...col]);
+  }
+  protected static decode<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    buff: ArrayBuffer,
+  ): KeyAxis<DC> {
+    const [id, keys, ...col] = Parsers.ArrayBufferList.decode(buff);
+    IdVersionParser.check(id, this.id);
+    const colAxis = ColumnAxis._decode(parser, col);
+    const keysAxis = new KeyAxis(colAxis.data);
+    keysAxis.rowSize = colAxis.rowSize;
+    keysAxis.keys = Parsers.StringList.decode(keys);
+    keysAxis.unusedKeyIdx = [
+      ...keysAxis.keys.map((key, idx) => key == "" ? idx : null).filter((x) =>
+        x !== null
+      ),
+    ];
+    keysAxis.keyMapping = new Map(keysAxis.keys.map((key, idx) => [key, idx]));
+    return keysAxis;
+  }
+  static create<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+    keysAxis?: KeyAxis<DC>,
+  ): KeyAxis<DC> {
+    if (keysAxis) {
+      return new KeyAxis(keysAxis);
+    } else {
+      return new KeyAxis(ColumnAxis._create(parser));
+    }
+  }
+  static parser<DC extends DataArr<any>>(
+    parser: GenericParser<DC>,
+  ): GenericParser<KeyAxis<DC>> {
+    return new GenericParser({
+      encode: (KeyAxis.encode<DC>).bind(KeyAxis, parser),
+      decode: (KeyAxis.decode<DC>).bind(KeyAxis, parser),
+      create: (KeyAxis.create<DC>).bind(KeyAxis, parser),
+    });
+  }
   constructor(from: KeyAxis<DC> | DC) {
     super(from);
     if (from instanceof KeyAxis) {

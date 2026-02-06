@@ -1,3 +1,5 @@
+import { GenericParser, IdVersionParser, Parsers } from "./_parser.ts";
+
 export abstract class DataArr<DT> {
   constructor() {}
   abstract get length(): number;
@@ -21,16 +23,41 @@ export class StrDataArray extends DataArr<string> {
   private data: Uint16Array;
   private indexVal: string[];
   private indexValMap: Map<string, number>; // inverse mapping of indexVal
-  static readonly Undefined: string = "";
-  static isUndefined(str: string): boolean {
-    return str == StrDataArray.Undefined;
+  private static id: ArrayBuffer = IdVersionParser.create("StrDataArray", 1);
+  protected static encode(str: StrDataArray): ArrayBuffer {
+    const data = Parsers.Uint16Array.encode(str.data);
+    const indexVal = Parsers.StringList.encode(str.indexVal);
+    return Parsers.ArrayBufferList.encode([this.id, data, indexVal]);
   }
+  protected static decode(buff: ArrayBuffer): StrDataArray {
+    const [id, data, indexVal] = Parsers.ArrayBufferList.decode(buff);
+    IdVersionParser.check(id, this.id);
+    const str = new StrDataArray();
+    str.data = Parsers.Uint16Array.decode(data);
+    str.indexVal = Parsers.StringList.decode(indexVal);
+    str.indexValMap = new Map(str.indexVal.map((val, i) => [val, i]));
+    return str;
+  }
+
+  protected static create(value?: StrDataArray): StrDataArray {
+    return new StrDataArray(value);
+  }
+
+  static parser(): GenericParser<StrDataArray> {
+    return new GenericParser({
+      encode: StrDataArray.encode.bind(StrDataArray),
+      decode: StrDataArray.decode.bind(StrDataArray),
+      create: StrDataArray.create.bind(StrDataArray),
+    });
+  }
+  private static undefined = 65535;
+
   constructor(from?: StrDataArray) {
     super();
     if (!from) {
-      this.data = new Uint16Array(0).fill(0);
-      this.indexVal = [StrDataArray.Undefined];
-      this.indexValMap = new Map([[StrDataArray.Undefined, 0]]);
+      this.data = new Uint16Array(0).fill(StrDataArray.undefined);
+      this.indexVal = [];
+      this.indexValMap = new Map();
     } else {
       this.data = new Uint16Array(from.data);
       this.indexVal = [...from.indexVal];
@@ -51,6 +78,7 @@ export class StrDataArray extends DataArr<string> {
     if (add < 1) throw new Error("Cannot reduce space");
     const data = new Uint16Array(this.data.length + add);
     data.set(this.data);
+    data.fill(StrDataArray.undefined, this.data.length);
     this.data = data;
     return this;
   }
@@ -58,6 +86,9 @@ export class StrDataArray extends DataArr<string> {
     let valIdx = this.indexValMap.get(value)!;
     if (valIdx === undefined) {
       valIdx = this.indexVal.length;
+      if (StrDataArray.undefined === valIdx) {
+        throw new Error("All unique values are already used");
+      }
       this.indexVal.push(value);
       this.indexValMap.set(value, valIdx);
     }
@@ -65,25 +96,28 @@ export class StrDataArray extends DataArr<string> {
     return this;
   }
   clear(startIndex?: number, endIndex?: number): this {
-    this.data.fill(0, startIndex, endIndex);
+    this.data.fill(StrDataArray.undefined, startIndex, endIndex);
     return this;
   }
   getAt(index: number): string | undefined {
-    const val = this.indexVal[this.data[index]];
-    if (StrDataArray.isUndefined(val)) return undefined;
-    return val;
+    const i = this.data[index];
+    if (i === StrDataArray.undefined) return undefined;
+    return this.indexVal[i];
   }
   setAt(index: number, value: string): void {
     let valIdx = this.indexValMap.get(value)!;
     if (valIdx === undefined) {
       valIdx = this.indexVal.length;
+      if (StrDataArray.undefined === valIdx) {
+        throw new Error("All unique values are already used");
+      }
       this.indexVal.push(value);
       this.indexValMap.set(value, valIdx);
     }
     this.data[index] = valIdx;
   }
   delAt(index: number): void {
-    this.data[index] = 0;
+    this.data[index] = StrDataArray.undefined;
   }
 
   valToStr(val: string | undefined): string {
@@ -92,14 +126,34 @@ export class StrDataArray extends DataArr<string> {
 }
 export class FloatDataArray extends DataArr<number> {
   private data: Float32Array;
-  static readonly Undefined = NaN;
-  static isUndefined(val: number): boolean {
-    return isNaN(val);
+  private static id: ArrayBuffer = IdVersionParser.create("FloatDataArray", 1);
+  private static undefined: number = -(2 ** 49);
+  protected static encode(float: FloatDataArray): ArrayBuffer {
+    const data = Parsers.Float32Array.encode(float.data);
+    return Parsers.ArrayBufferList.encode([this.id, data]);
+  }
+  protected static decode(buff: ArrayBuffer): FloatDataArray {
+    const [id, data] = Parsers.ArrayBufferList.decode(buff);
+    IdVersionParser.check(id, this.id);
+    const float = new FloatDataArray();
+    float.data = Parsers.Float32Array.decode(data);
+    return float;
+  }
+  protected static create(value?: FloatDataArray): FloatDataArray {
+    return new FloatDataArray(value);
+  }
+
+  static parser(): GenericParser<FloatDataArray> {
+    return new GenericParser({
+      encode: FloatDataArray.encode.bind(FloatDataArray),
+      decode: FloatDataArray.decode.bind(FloatDataArray),
+      create: FloatDataArray.create.bind(FloatDataArray),
+    });
   }
   constructor(from?: FloatDataArray) {
     super();
     if (!from) {
-      this.data = new Float32Array(0).fill(FloatDataArray.Undefined);
+      this.data = new Float32Array(0).fill(FloatDataArray.undefined);
     } else {
       this.data = new Float32Array(from.data);
     }
@@ -119,7 +173,7 @@ export class FloatDataArray extends DataArr<number> {
     if (add < 1) throw new Error("Cannot reduce space");
     const data = new Float32Array(this.data.length + add);
     data.set(this.data);
-    data.fill(FloatDataArray.Undefined, this.data.length);
+    data.fill(FloatDataArray.undefined, this.data.length);
     this.data = data;
     return this;
   }
@@ -128,29 +182,52 @@ export class FloatDataArray extends DataArr<number> {
     return this;
   }
   clear(startIndex?: number, endIndex?: number): this {
-    this.data.fill(FloatDataArray.Undefined, startIndex, endIndex);
+    this.data.fill(FloatDataArray.undefined, startIndex, endIndex);
     return this;
   }
   getAt(index: number): number | undefined {
     const val = this.data[index];
-    if (FloatDataArray.isUndefined(val)) return undefined;
+    if (val === FloatDataArray.undefined) return undefined;
     return val;
   }
   setAt(index: number, value: number): void {
     this.data[index] = value;
   }
   delAt(index: number): void {
-    this.data[index] = FloatDataArray.Undefined;
+    this.data[index] = FloatDataArray.undefined;
   }
 
   valToStr(val: number | undefined): string {
     return val?.toFixed(4) ?? "";
   }
 }
-export class FlagDataArray extends DataArr<boolean> {
+export class FlagDataArray extends DataArr<true> {
   private data: Uint8Array;
   private _length: number;
-
+  private static id: ArrayBuffer = IdVersionParser.create("FlagDataArray", 1);
+  static encode(flag: FlagDataArray): ArrayBuffer {
+    const data = Parsers.Uint8Array.encode(flag.data);
+    const len = Parsers.Number.encode(flag._length);
+    return Parsers.ArrayBufferList.encode([this.id, data, len]);
+  }
+  static decode(buff: ArrayBuffer): FlagDataArray {
+    const [id, data, len] = Parsers.ArrayBufferList.decode(buff);
+    IdVersionParser.check(id, this.id);
+    const flag = new FlagDataArray();
+    flag.data = Parsers.Uint8Array.decode(data);
+    flag._length = Parsers.Number.decode(len);
+    return flag;
+  }
+  static create(flag?: FlagDataArray): FlagDataArray {
+    return new FlagDataArray(flag);
+  }
+  static parser(): GenericParser<FlagDataArray> {
+    return new GenericParser({
+      encode: FlagDataArray.encode.bind(FlagDataArray),
+      decode: FlagDataArray.decode.bind(FlagDataArray),
+      create: FlagDataArray.create.bind(FlagDataArray),
+    });
+  }
   constructor(from?: FlagDataArray) {
     super();
     if (from) {
@@ -166,18 +243,14 @@ export class FlagDataArray extends DataArr<boolean> {
     return this._length;
   }
 
-  getAt(index: number): boolean {
-    if (index < 0 || index >= this._length) return false;
-    return (this.data[index >> 3] & (1 << (index & 7))) !== 0;
+  getAt(index: number): true | undefined {
+    if (index < 0 || index >= this._length) return undefined;
+    return ((this.data[index >> 3] & (1 << (index & 7))) !== 0) || undefined;
   }
 
-  setAt(index: number, value: boolean): void {
+  setAt(index: number, _value: true): void {
     if (index < 0 || index >= this._length) return;
-    if (value) {
-      this.data[index >> 3] |= 1 << (index & 7);
-    } else {
-      this.data[index >> 3] &= ~(1 << (index & 7));
-    }
+    this.data[index >> 3] |= 1 << (index & 7);
   }
 
   expand(add: number): this {
@@ -198,65 +271,87 @@ export class FlagDataArray extends DataArr<boolean> {
   }
 
   fill(
-    value: boolean,
+    _value: true,
     startIndex: number = 0,
     endIndex: number = this._length,
   ): this {
     if (startIndex >= endIndex) return this;
     while (startIndex < endIndex && (startIndex & 7) !== 0) {
-      this.setAt(startIndex++, value);
+      this.setAt(startIndex++, true);
     }
     const startByte = startIndex >> 3;
     const endByte = endIndex >> 3;
     if (startByte < endByte) {
-      this.data.fill(value ? 0xff : 0, startByte, endByte);
+      this.data.fill(0xff, startByte, endByte);
       startIndex = endByte << 3;
     }
     while (startIndex < endIndex) {
-      this.setAt(startIndex++, value);
+      this.setAt(startIndex++, true);
     }
     return this;
   }
 
-  clear(startIndex?: number, endIndex?: number): this {
-    return this.fill(false, startIndex, endIndex);
+  clear(startIndex: number = 0, endIndex: number = this._length): this {
+    if (startIndex >= endIndex) return this;
+    while (startIndex < endIndex && (startIndex & 7) !== 0) {
+      this.delAt(startIndex++);
+    }
+    const startByte = startIndex >> 3;
+    const endByte = endIndex >> 3;
+    if (startByte < endByte) {
+      this.data.fill(0, startByte, endByte);
+      startIndex = endByte << 3;
+    }
+    while (startIndex < endIndex) {
+      this.delAt(startIndex++);
+    }
+    return this;
   }
 
   delAt(index: number): void {
-    this.setAt(index, false);
+    if (index < 0 || index >= this._length) return;
+    this.data[index >> 3] &= ~(1 << (index & 7));
   }
 
   copyWithin(targetIndex: number, startIndex: number, endIndex: number): this {
     const diff = targetIndex - startIndex;
     if (targetIndex < startIndex) {
       for (let i = startIndex; i < endIndex; i++) {
-        this.setAt(i + diff, this.getAt(i));
+        if (this.getAt(i)) {
+          this.setAt(i + diff, true);
+        } else {
+          this.delAt(i + diff);
+        }
       }
     } else {
       for (let i = endIndex - 1; i >= startIndex; i--) {
-        this.setAt(i + diff, this.getAt(i));
+        if (this.getAt(i)) {
+          this.setAt(i + diff, true);
+        } else {
+          this.delAt(i + diff);
+        }
       }
     }
     return this;
   }
 
-  *getValues(
+  *getFlagedIdx(
     start: number = 0,
     end: number = this._length,
     dir: 1 | -1 = 1,
-  ): IterableIterator<[number, boolean]> {
+  ): IterableIterator<number> {
     if (dir === 1) {
       for (let i = start; i < end; i++) {
-        yield [i, (this.data[i >> 3] & (1 << (i & 7))) !== 0];
+        if ((this.data[i >> 3] & (1 << (i & 7))) !== 0) yield i;
       }
     } else {
       for (let i = end - 1; i >= start; i--) {
-        yield [i, (this.data[i >> 3] & (1 << (i & 7))) !== 0];
+        if ((this.data[i >> 3] & (1 << (i & 7))) !== 0) yield i;
       }
     }
   }
 
-  valToStr(val: boolean | undefined): string {
-    return val ? "ׂ̇·" : "";
+  valToStr(val: true | undefined): string {
+    return val ? "·" : "";
   }
 }

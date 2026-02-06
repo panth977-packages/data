@@ -1,3 +1,4 @@
+import { GenericParser, IdVersionParser, Parsers } from "./_parser.ts";
 import type { ColumnAxis } from "./col_axis.ts";
 import { FlagDataArray, type inferDTFromDC } from "./data_array.ts";
 
@@ -14,6 +15,50 @@ export abstract class RowAxis<
   C extends Record<string, ColumnAxis<any, any>>,
 > {
   protected columns: C;
+  private static _id = IdVersionParser.create("ColumnAxis", 1);
+  protected static _encode<
+    RT,
+    C extends Record<string, ColumnAxis<any, any>>,
+  >(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    rowAxis: RowAxis<RT, C>,
+  ): ArrayBuffer[] {
+    const topics = Object.keys(rowAxis.columns);
+    const topicsBuffer = Parsers.StringList.encode(topics);
+    const columnsBuffers = Parsers.ArrayBufferList.encode(
+      topics.map((topic) =>
+        parser[topic].encode(rowAxis.columns[topic] as never)
+      ),
+    );
+    return [
+      this._id,
+      topicsBuffer,
+      columnsBuffers,
+    ];
+  }
+  protected static _decode<
+    C extends Record<string, ColumnAxis<any, any>>,
+  >(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    buff: ArrayBuffer[],
+  ): C {
+    const [id, topicsBuffer, columnsBuffers] = buff;
+    IdVersionParser.check(id, this._id);
+    const topics = Parsers.StringList.decode(topicsBuffer);
+    const columns = Parsers.ArrayBufferList.decode(columnsBuffers);
+    return Object.fromEntries(
+      topics.map((topic, i) => [topic, parser[topic].decode(columns[i])]),
+    ) as never;
+  }
+  protected static _create<
+    C extends Record<string, ColumnAxis<any, any>>,
+  >(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+  ): C {
+    return Object.fromEntries(
+      Object.keys(parser).map((topic) => [topic, parser[topic].create()]),
+    ) as never;
+  }
   constructor(from: RowAxis<RT, C> | C) {
     if (from instanceof RowAxis) {
       this.columns = { ...from.columns };
@@ -293,6 +338,62 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   private epochMapping: Map<number, number>;
   private unusedEpochIdx: Array<number>;
   static readonly Undefined: number = 0;
+  private static id = IdVersionParser.create("RelativeEpochAxis", 1);
+  protected static encode<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    epochAxis: RelativeEpochAxis<C>,
+  ): ArrayBuffer {
+    const minEpoch = Parsers.Number.encode(epochAxis.minEpoch);
+    const epoch = Parsers.Uint32Array.encode(epochAxis.epoch);
+    const columns = RowAxis._encode(parser, epochAxis);
+    return Parsers.ArrayBufferList.encode([
+      this.id,
+      minEpoch,
+      epoch,
+      ...columns,
+    ]);
+  }
+  protected static decode<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    buff: ArrayBuffer,
+  ): RelativeEpochAxis<C> {
+    const [id, minEpoch, epoch, ...columns] = Parsers.ArrayBufferList.decode(
+      buff,
+    );
+    IdVersionParser.check(id, this.id);
+    const epochAxis = new RelativeEpochAxis(
+      RowAxis._decode(parser, columns),
+    );
+    epochAxis.minEpoch = Parsers.Number.decode(minEpoch);
+    epochAxis.epoch = Parsers.Uint32Array.decode(epoch);
+    for (let i = 0; i < epochAxis.epoch.length; i++) {
+      if (epochAxis.epoch[i] == 0) {
+        epochAxis.unusedEpochIdx.push(i);
+      } else {
+        epochAxis.epochMapping.set(epochAxis.epoch[i], i);
+      }
+    }
+    return epochAxis;
+  }
+  static create<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    relativeEpochAxis?: RelativeEpochAxis<C>,
+  ): RelativeEpochAxis<C> {
+    if (relativeEpochAxis) {
+      return new RelativeEpochAxis(relativeEpochAxis);
+    } else {
+      return new RelativeEpochAxis(RowAxis._create(parser));
+    }
+  }
+  static parser<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+  ): GenericParser<RelativeEpochAxis<C>> {
+    return new GenericParser({
+      encode: (RelativeEpochAxis.encode<C>).bind(RelativeEpochAxis, parser),
+      decode: (RelativeEpochAxis.decode<C>).bind(RelativeEpochAxis, parser),
+      create: (RelativeEpochAxis.create<C>).bind(RelativeEpochAxis, parser),
+    });
+  }
   constructor(from: RelativeEpochAxis<C> | C) {
     super(from);
     if (from instanceof RelativeEpochAxis) {
@@ -414,6 +515,76 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   private firstEpochIdxInUse: number; // first epoch
   private lastEpochIdxInUse: number; // last epoch
 
+  private static id = IdVersionParser.create("RelativeEpochAxis", 1);
+  protected static encode<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    epochAxis: PredefinedEpochAxis<C>,
+  ): ArrayBuffer {
+    const firstEpoch = Parsers.Number.encode(epochAxis.firstEpoch);
+    const factor = Parsers.Number.encode(epochAxis.factor);
+    const epoch = FlagDataArray.encode(epochAxis.epoch);
+    const columns = RowAxis._encode(parser, epochAxis);
+    return Parsers.ArrayBufferList.encode([
+      this.id,
+      firstEpoch,
+      factor,
+      epoch,
+      ...columns,
+    ]);
+  }
+  protected static decode<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    buff: ArrayBuffer,
+  ): PredefinedEpochAxis<C> {
+    const [id, firstEpoch, factor, epoch, ...columns] = Parsers.ArrayBufferList
+      .decode(buff);
+    IdVersionParser.check(id, this.id);
+    const epochAxis = new PredefinedEpochAxis(
+      RowAxis._decode(parser, columns),
+    );
+    epochAxis.firstEpoch = Parsers.Number.decode(firstEpoch);
+    epochAxis.factor = Parsers.Number.decode(factor);
+    epochAxis.epoch = FlagDataArray.decode(epoch);
+    for (const idx of epochAxis.epoch.getFlagedIdx()) {
+      if (epochAxis._used === 0) {
+        epochAxis._used = 1;
+        epochAxis.firstEpochIdxInUse = idx;
+        epochAxis.lastEpochIdxInUse = idx;
+      } else {
+        epochAxis._used++;
+        epochAxis.lastEpochIdxInUse = idx;
+      }
+    }
+    return epochAxis;
+  }
+  static create<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+    relativeEpochAxis?: PredefinedEpochAxis<C>,
+  ): PredefinedEpochAxis<C> {
+    if (relativeEpochAxis) {
+      return new PredefinedEpochAxis(relativeEpochAxis);
+    } else {
+      return new PredefinedEpochAxis(RowAxis._create(parser));
+    }
+  }
+  static parser<C extends Record<string, ColumnAxis<any, any>>>(
+    parser: { [K in keyof C]: GenericParser<C[K]> },
+  ): GenericParser<PredefinedEpochAxis<C>> {
+    return new GenericParser({
+      encode: (PredefinedEpochAxis.encode<C>).bind(
+        PredefinedEpochAxis,
+        parser,
+      ),
+      decode: (PredefinedEpochAxis.decode<C>).bind(
+        PredefinedEpochAxis,
+        parser,
+      ),
+      create: (PredefinedEpochAxis.create<C>).bind(
+        PredefinedEpochAxis,
+        parser,
+      ),
+    });
+  }
   constructor(from: PredefinedEpochAxis<C> | C) {
     super(from);
     if (from instanceof PredefinedEpochAxis) {
@@ -590,36 +761,36 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   protected *getIdsWithIndex(): IterableIterator<[number, number]> {
     if (this._used) {
       for (
-        const [idx, ex] of this.epoch.getValues(
+        const idx of this.epoch.getFlagedIdx(
           this.firstEpochIdxInUse,
           this.lastEpochIdxInUse + 1,
         )
       ) {
-        if (ex) yield [this.firstEpoch + idx * this.factor, idx];
+        yield [this.firstEpoch + idx * this.factor, idx];
       }
     }
   }
   protected *getIds(): IterableIterator<number> {
     if (this._used) {
       for (
-        const [idx, ex] of this.epoch.getValues(
+        const idx of this.epoch.getFlagedIdx(
           this.firstEpochIdxInUse,
           this.lastEpochIdxInUse + 1,
         )
       ) {
-        if (ex) yield this.firstEpoch + idx * this.factor;
+        yield this.firstEpoch + idx * this.factor;
       }
     }
   }
   protected *getIdIndex(): IterableIterator<number> {
     if (this._used) {
       for (
-        const [idx, ex] of this.epoch.getValues(
+        const idx of this.epoch.getFlagedIdx(
           this.firstEpochIdxInUse,
           this.lastEpochIdxInUse + 1,
         )
       ) {
-        if (ex) yield idx;
+        yield idx;
       }
     }
   }

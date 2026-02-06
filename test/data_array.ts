@@ -9,7 +9,7 @@ export function runDataArrayQA() {
   TestBench.assert(fda.length === 10, "Length expands correctly");
   TestBench.assert(fda.getAt(5) === 1.5, "Fill applies values correctly");
 
-  fda.setAt(2, FloatDataArray.Undefined);
+  fda.delAt(2);
   TestBench.assert(
     fda.getAt(2) === undefined,
     "Undefined constant maps to JS undefined",
@@ -49,7 +49,10 @@ export function runDataArrayQA() {
   flags.setAt(8, true);
   TestBench.assert(flags.getAt(7) === true, "Bit 7 (end of Byte 0) is set");
   TestBench.assert(flags.getAt(8) === true, "Bit 8 (start of Byte 1) is set");
-  TestBench.assert(flags.getAt(6) === false, "Neighboring bit 6 remains false");
+  TestBench.assert(
+    flags.getAt(6) === undefined,
+    "Neighboring bit 6 remains false",
+  );
 
   // Test 2: Bulk Fill
   flags.clear(); // Set all to false
@@ -64,19 +67,12 @@ export function runDataArrayQA() {
 
   // Test 3: Iterator
   TestBench.section("FlagDataArray Iterator");
-  const itResults: boolean[] = [];
   const idxResults: number[] = [];
-  flags.setAt(5, false);
-  for (const [idx, val] of flags.getValues(4, 7)) {
-    itResults.push(val);
+  flags.delAt(5);
+  for (const idx of flags.getFlagedIdx(4, 7)) {
     idxResults.push(idx);
   }
-  TestBench.assertDeep(
-    itResults,
-    [true, false, true],
-    "Iterator yields correct partial range",
-  );
-  TestBench.assertDeep(idxResults, [4, 5, 6], "Iterator yields correct int");
+  TestBench.assertDeep(idxResults, [4, 6], "Iterator yields correct int");
 
   // Test 4: CopyWithin (Shift logic)
   TestBench.section("FlagDataArray copyWithin");

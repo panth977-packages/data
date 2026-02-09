@@ -169,6 +169,22 @@ export abstract class RowAxis<
     return [topic, idx];
   }
 
+  removeRow(row: RT) {
+    if (this.getIdxId(row) != undefined) {
+      this.remove(row);
+    }
+  }
+
+  removeCol<K extends keyof C>(
+    topic: K,
+    col: inferAT<C, K>,
+  ) {
+    const column = this.columns[topic];
+    if (column.getIdxId(col) != undefined) {
+      column.remove(col);
+    }
+  }
+
   get<K extends keyof C>(
     rIdx: number,
     cIdx: [K, number],
@@ -536,6 +552,35 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   idToStr(val: number | undefined): string {
     return val?.toString() ?? "";
   }
+  filter(
+    parser: GenericParser<RelativeEpochAxis<C>>,
+    predicate: (row: number, rIdx: number) => boolean,
+  ): RelativeEpochAxis<C> {
+    const filteredRows = parser.create();
+    const cols = [];
+    for (const topic in filteredRows.columns) {
+      filteredRows.expandCol(topic, this.usedOfCol(topic));
+      for (const [col, cIdx] of this.cols(topic, "[col,cIdx]")) {
+        cols.push([cIdx, filteredRows.getCIdx(topic, col, true)] as const);
+      }
+    }
+    const rows = [];
+    for (const [row, rIdx] of filteredRows.getIdsWithIndex()) {
+      if (predicate(row, rIdx)) {
+        rows.push([row, rIdx] as const);
+      }
+    }
+    if (rows.length === 0) return filteredRows;
+    filteredRows.expand(rows.length);
+    for (const [row, rIdx] of rows) {
+      const rIdxF = filteredRows.getRIdx(row, true);
+      for (const [cIdx, cIdxF] of cols) {
+        const val = this.get(rIdx, cIdx);
+        if (val != undefined) filteredRows.set(rIdxF, cIdxF, val);
+      }
+    }
+    return filteredRows;
+  }
 }
 
 export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
@@ -843,5 +888,37 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   }
   idToStr(val: number | undefined): string {
     return val?.toString() ?? "";
+  }
+
+  filter(
+    parser: GenericParser<PredefinedEpochAxis<C>>,
+    predicate: (row: number, rIdx: number) => boolean,
+  ): PredefinedEpochAxis<C> {
+    const filteredRows = parser.create();
+    const cols = [];
+    for (const topic in filteredRows.columns) {
+      filteredRows.expandCol(topic, this.usedOfCol(topic));
+      for (const [col, cIdx] of this.cols(topic, "[col,cIdx]")) {
+        cols.push([cIdx, filteredRows.getCIdx(topic, col, true)] as const);
+      }
+    }
+    const rows = [];
+    for (const [row, rIdx] of filteredRows.getIdsWithIndex()) {
+      if (predicate(row, rIdx)) {
+        rows.push([row, rIdx] as const);
+      }
+    }
+    if (rows.length === 0) return filteredRows;
+    const gte = Math.min(...rows.map((x) => x[0]));
+    const lte = Math.max(...rows.map((x) => x[0])) + this.factor;
+    filteredRows.optimize({ gap: this.factor, gte, lte });
+    for (const [row, rIdx] of rows) {
+      const rIdxF = filteredRows.getRIdx(row, true);
+      for (const [cIdx, cIdxF] of cols) {
+        const val = this.get(rIdx, cIdx);
+        if (val != undefined) filteredRows.set(rIdxF, cIdxF, val);
+      }
+    }
+    return filteredRows;
   }
 }

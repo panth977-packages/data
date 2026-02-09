@@ -92,7 +92,7 @@ export abstract class RowAxis<
   protected abstract getIds(): IterableIterator<RT>;
   protected abstract getIdIndex(): IterableIterator<number>;
 
-  protected expandCol<K extends keyof C>(topic: K, add: number) {
+  expandCol<K extends keyof C>(topic: K, add: number) {
     this.columns[topic].expand(add);
   }
 
@@ -177,7 +177,7 @@ export abstract class RowAxis<
   set<K extends keyof C>(
     rIdx: number,
     cIdx: [K, number],
-    val: inferDT<C, K> | undefined,
+    val: inferDT<C, K>,
   ) {
     this.columns[cIdx[0]].setAt(rIdx, cIdx[1], val);
   }

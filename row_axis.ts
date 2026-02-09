@@ -83,6 +83,7 @@ export abstract class RowAxis<
   }
   abstract copy(): this;
   protected abstract get capacity(): number;
+  protected abstract get used(): number;
   protected abstract expand(add: number): this;
   protected abstract make(id: RT): this;
   protected abstract remove(id: RT): this;
@@ -200,11 +201,17 @@ export abstract class RowAxis<
     return res;
   }
 
+  usedOfRow(): number {
+    return this.used;
+  }
   capacityOfRow(): number {
     return this.capacity;
   }
   getRowAt(rIdx: number): RT | undefined {
     return this.getIdAt(rIdx);
+  }
+  usedOfCol<K extends keyof C>(topic: K): number {
+    return this.columns[topic].used;
   }
   capacityOfCol<K extends keyof C>(topic: K): number {
     return this.columns[topic].capacity;
@@ -439,6 +446,9 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   }
   copy(): this {
     return new RelativeEpochAxis(this) as this;
+  }
+  protected get used(): number {
+    return this.epochMapping.size;
   }
   protected get capacity(): number {
     return this.epoch.length;
@@ -716,6 +726,9 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
 
   copy(): this {
     return new PredefinedEpochAxis(this) as this;
+  }
+  protected get used(): number {
+    return this._used;
   }
   protected get capacity(): number {
     return this.epoch.length;

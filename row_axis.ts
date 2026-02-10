@@ -307,6 +307,37 @@ export abstract class RowAxis<
     return finalLines.join("\n");
   }
   abstract idToStr(val: RT | undefined): string;
+
+  protected _filter<T extends RowAxis<RT, C>>(
+    predicate: ((row: RT, rIdx: number) => boolean) | [RT, number][],
+    create: (rows: (readonly [RT, number])[]) => T,
+  ): T {
+    const rows = Array.isArray(predicate) ? predicate : [];
+    if (typeof predicate === "function") {
+      for (const [row, rIdx] of this.rows("[row,rIdx]")) {
+        if (predicate(row, rIdx)) {
+          rows.push([row, rIdx] as const);
+        }
+      }
+    }
+    if (rows.length === 0) return create(rows);
+    const filteredRows = create(rows);
+    const cols = [];
+    for (const topic in filteredRows.columns) {
+      filteredRows.expandCol(topic, this.usedOfCol(topic));
+      for (const [col, cIdx] of this.cols(topic, "[col,cIdx]")) {
+        cols.push([cIdx, filteredRows.getCIdx(topic, col, true)] as const);
+      }
+    }
+    for (const [row, rIdx] of rows) {
+      const rIdxF = filteredRows.getRIdx(row, true);
+      for (const [cIdx, cIdxF] of cols) {
+        const val = this.get(rIdx, cIdx);
+        if (val != undefined) filteredRows.set(rIdxF, cIdxF, val);
+      }
+    }
+    return filteredRows;
+  }
 }
 export type RowAxisClass<
   O,
@@ -554,32 +585,12 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   }
   filter(
     parser: GenericParser<RelativeEpochAxis<C>>,
-    predicate: (row: number, rIdx: number) => boolean,
+    predicate: ((row: number, rIdx: number) => boolean) | [number, number][],
   ): RelativeEpochAxis<C> {
-    const filteredRows = parser.create();
-    const cols = [];
-    for (const topic in filteredRows.columns) {
-      filteredRows.expandCol(topic, this.usedOfCol(topic));
-      for (const [col, cIdx] of this.cols(topic, "[col,cIdx]")) {
-        cols.push([cIdx, filteredRows.getCIdx(topic, col, true)] as const);
-      }
-    }
-    const rows = [];
-    for (const [row, rIdx] of filteredRows.getIdsWithIndex()) {
-      if (predicate(row, rIdx)) {
-        rows.push([row, rIdx] as const);
-      }
-    }
-    if (rows.length === 0) return filteredRows;
-    filteredRows.expand(rows.length);
-    for (const [row, rIdx] of rows) {
-      const rIdxF = filteredRows.getRIdx(row, true);
-      for (const [cIdx, cIdxF] of cols) {
-        const val = this.get(rIdx, cIdx);
-        if (val != undefined) filteredRows.set(rIdxF, cIdxF, val);
-      }
-    }
-    return filteredRows;
+    return this._filter(
+      predicate,
+      (rows) => parser.create().expand(rows.length),
+    );
   }
 }
 
@@ -892,33 +903,15 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
 
   filter(
     parser: GenericParser<PredefinedEpochAxis<C>>,
-    predicate: (row: number, rIdx: number) => boolean,
+    predicate: ((row: number, rIdx: number) => boolean) | [number, number][],
   ): PredefinedEpochAxis<C> {
-    const filteredRows = parser.create();
-    const cols = [];
-    for (const topic in filteredRows.columns) {
-      filteredRows.expandCol(topic, this.usedOfCol(topic));
-      for (const [col, cIdx] of this.cols(topic, "[col,cIdx]")) {
-        cols.push([cIdx, filteredRows.getCIdx(topic, col, true)] as const);
-      }
-    }
-    const rows = [];
-    for (const [row, rIdx] of filteredRows.getIdsWithIndex()) {
-      if (predicate(row, rIdx)) {
-        rows.push([row, rIdx] as const);
-      }
-    }
-    if (rows.length === 0) return filteredRows;
-    const gte = Math.min(...rows.map((x) => x[0]));
-    const lte = Math.max(...rows.map((x) => x[0])) + this.factor;
-    filteredRows.optimize({ gap: this.factor, gte, lte });
-    for (const [row, rIdx] of rows) {
-      const rIdxF = filteredRows.getRIdx(row, true);
-      for (const [cIdx, cIdxF] of cols) {
-        const val = this.get(rIdx, cIdx);
-        if (val != undefined) filteredRows.set(rIdxF, cIdxF, val);
-      }
-    }
-    return filteredRows;
+    const gap = this.factor;
+    return this._filter(predicate, (rows) => {
+      return parser.create().optimize({
+        gap,
+        gte: Math.min(...rows.map((x) => x[0])),
+        lte: Math.max(...rows.map((x) => x[0])) + gap,
+      });
+    });
   }
 }

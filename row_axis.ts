@@ -788,6 +788,9 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   }
   protected expand(add: number): this {
     this.epoch.expand(add);
+    for (const k in this.columns) {
+      this.columns[k].expandRowSize(add);
+    }
     return this;
   }
   protected make(id: number): this {

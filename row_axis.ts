@@ -244,7 +244,6 @@ export abstract class RowAxis<
     const topicTables = topics.map((t) =>
       this.columns[t].toPrettyTable(colWidth + 1).split("\n")
     );
-    console.log(topicTables);
     const horizontalBar = "─".repeat(colWidth + 2);
 
     const rowIdLines = [
@@ -282,12 +281,10 @@ export abstract class RowAxis<
     // We start from index 1 of rowIdLines because index 0 was the 'ROW' label
     for (let i = 1; i < rowIdLines.length; i++) {
       let combined = rowIdLines[i];
-      console.log(i, topicTables);
       topicTables.forEach((tableLines, tIdx) => {
         // tableLines[0] is the ┌───┐ of the sub-table
         // We align rowIdLines[1] (the ├───┼) with tableLines[0]
         let line = tableLines[i - 1];
-        console.log(tableLines, line);
         if (i === 1) {
           // Connecting the Topic row to the Sub-table headers
           line = line
@@ -800,52 +797,58 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     }
     this.setFirst(id);
     const idx = (id - this.firstEpoch) / this.factor;
-    this._used++;
-    if (id >= this.epoch.length) throw new Error("No space left!");
+    if (idx >= this.epoch.length) throw new Error("No space left!");
     this.epoch.setAt(idx, true);
-    if (this.firstEpochIdxInUse == -1 || this.firstEpochIdxInUse > idx) {
+    if (this._used == 0) {
+      this._used = 1;
       this.firstEpochIdxInUse = idx;
-    }
-    if (this.lastEpochIdxInUse == -1 || this.lastEpochIdxInUse < idx) {
       this.lastEpochIdxInUse = idx;
+    } else {
+      this._used++;
+      if (this.firstEpochIdxInUse > idx) this.firstEpochIdxInUse = idx;
+      if (this.lastEpochIdxInUse < idx) this.lastEpochIdxInUse = idx;
     }
     return this;
   }
   protected remove(id: number): this {
     id = Math.floor(id / this.factor) * this.factor;
     const idx = (id - this.firstEpoch) / this.factor;
-    if (!this.epoch.getAt(idx)) throw new Error("Not found");
+    if (this.epoch.getAt(idx) == undefined) throw new Error("Not found");
     this.epoch.delAt(idx);
     for (const k in this.columns) {
       this.columns[k].delFromRow(idx);
     }
-    this._used--;
-    if (this._used == 1) {
+    if (this._used === 2) {
       if (this.firstEpochIdxInUse === idx) {
         this.firstEpochIdxInUse = this.lastEpochIdxInUse;
       } else {
         this.lastEpochIdxInUse = this.firstEpochIdxInUse;
       }
-    } else if (this._used == 0) {
+      this._used = 1;
+    } else if (this.used === 1) {
       this.firstEpochIdxInUse = -1;
       this.lastEpochIdxInUse = -1;
     } else {
-      for (
-        let i = this.firstEpochIdxInUse + 1;
-        i < this.lastEpochIdxInUse;
-        i++
-      ) {
-        if (this.epoch.getAt(i)) {
-          this.firstEpochIdxInUse = i;
+      this._used--;
+      if (idx === this.firstEpochIdxInUse) {
+        for (
+          let i = this.firstEpochIdxInUse + 1;
+          i < this.lastEpochIdxInUse;
+          i++
+        ) {
+          if (this.epoch.getAt(i)) {
+            this.firstEpochIdxInUse = i;
+          }
         }
-      }
-      for (
-        let i = this.lastEpochIdxInUse - 1;
-        i > this.firstEpochIdxInUse;
-        i--
-      ) {
-        if (this.epoch.getAt(i)) {
-          this.lastEpochIdxInUse = i;
+      } else if (idx === this.lastEpochIdxInUse) {
+        for (
+          let i = this.lastEpochIdxInUse - 1;
+          i > this.firstEpochIdxInUse;
+          i--
+        ) {
+          if (this.epoch.getAt(i)) {
+            this.lastEpochIdxInUse = i;
+          }
         }
       }
     }

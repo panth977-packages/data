@@ -117,10 +117,7 @@ export class Uint16ArrayParser extends Parser<Uint16Array> {
     // Create a copy of the underlying buffer to ensure no side effects
     // If you want zero-copy encode, you can just return data.buffer,
     // but slicing ensures we respect offset/length if it's a partial view.
-    return data.buffer.slice(
-      data.byteOffset,
-      data.byteOffset + data.byteLength,
-    );
+    return data.slice().buffer;
   }
 
   decode(data: ArrayBuffer): Uint16Array {
@@ -130,10 +127,7 @@ export class Uint16ArrayParser extends Parser<Uint16Array> {
 
 export class Float32ArrayParser extends Parser<Float32Array> {
   encode(data: Float32Array): ArrayBuffer {
-    return data.buffer.slice(
-      data.byteOffset,
-      data.byteOffset + data.byteLength,
-    );
+    return data.slice().buffer;
   }
 
   decode(data: ArrayBuffer): Float32Array {
@@ -143,10 +137,7 @@ export class Float32ArrayParser extends Parser<Float32Array> {
 
 export class Uint8ArrayParser extends Parser<Uint8Array> {
   encode(data: Uint8Array): ArrayBuffer {
-    return data.buffer.slice(
-      data.byteOffset,
-      data.byteOffset + data.byteLength,
-    );
+    return data.slice().buffer;
   }
 
   decode(data: ArrayBuffer): Uint8Array {
@@ -159,10 +150,7 @@ export class Uint32ArrayParser extends Parser<Uint32Array> {
     // Create a copy of the underlying buffer to ensure no side effects
     // If you want zero-copy encode, you can just return data.buffer,
     // but slicing ensures we respect offset/length if it's a partial view.
-    return data.buffer.slice(
-      data.byteOffset,
-      data.byteOffset + data.byteLength,
-    );
+    return data.slice().buffer;
   }
 
   decode(data: ArrayBuffer): Uint32Array {

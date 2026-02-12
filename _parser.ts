@@ -293,16 +293,16 @@ export class ArrayBufferListParser extends Parser<ArrayBuffer[]> {
 }
 
 export class NumberParser extends Parser<number> {
+  private encoder = new TextEncoder();
+  private decoder = new TextDecoder();
+
   encode(value: number): ArrayBuffer {
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setFloat32(0, value, true);
-    return buffer;
+    const encodedString = this.encoder.encode("" + value);
+    return encodedString.buffer;
   }
 
   decode(data: ArrayBuffer): number {
-    const view = new DataView(data);
-    return view.getFloat32(0, true);
+    return +this.decoder.decode(data);
   }
 }
 

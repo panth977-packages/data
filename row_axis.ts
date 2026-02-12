@@ -884,15 +884,15 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
           this.columns[topic].copyWithinFromRow(
             0,
             this.firstEpochIdxInUse,
-            this.lastEpochIdxInUse,
+            this.lastEpochIdxInUse + 1,
           ).shrinkRowSize(this.firstEpochIdxInUse);
         }
         this.epoch.copyWithin(
           0,
           this.firstEpochIdxInUse,
-          this.lastEpochIdxInUse,
+          this.lastEpochIdxInUse + 1,
         ).shrink(this.firstEpochIdxInUse);
-        this.firstEpoch += this.factor * this.firstEpochIdxInUse;
+        this.firstEpoch += this.firstEpochIdxInUse * this.factor;
         this.lastEpochIdxInUse -= this.firstEpochIdxInUse - 1;
         this.firstEpochIdxInUse = 0;
       }

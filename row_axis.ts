@@ -796,7 +796,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   private normalizeId(id: number): number {
     if (!this.firstEpoch) return id;
     return this.firstEpoch +
-      Math.floor((this.firstEpoch - id) / this.factor) * this.factor;
+      Math.floor((id - this.firstEpoch) / this.factor) * this.factor;
   }
   private setFirst(id: number) {
     if (!this._used) {

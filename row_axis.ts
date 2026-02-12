@@ -793,6 +793,11 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     this.setFirst(opt.gte);
     return this;
   }
+  private normalizeId(id: number): number {
+    if (!this.firstEpoch) return id;
+    return this.firstEpoch +
+      Math.floor((this.firstEpoch - id) / this.factor) * this.factor;
+  }
   private setFirst(id: number) {
     if (!this._used) {
       if (!this.firstEpoch) {
@@ -906,7 +911,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     return this;
   }
   protected make(id: number): this {
-    id = Math.floor(id / this.factor) * this.factor;
+    id = this.normalizeId(id);
     if (this.epoch.getAt(id - this.firstEpoch)) {
       throw new Error("Already Exists");
     }
@@ -926,7 +931,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     return this;
   }
   protected remove(id: number): this {
-    id = Math.floor(id / this.factor) * this.factor;
+    id = this.normalizeId(id);
     const idx = (id - this.firstEpoch) / this.factor;
     if (this.epoch.getAt(idx) == undefined) throw new Error("Not found");
     this.epoch.delAt(idx);
@@ -974,7 +979,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     return undefined;
   }
   protected getIdxId(id: number): number | undefined {
-    id = Math.floor(id / this.factor) * this.factor;
+    id = this.normalizeId(id);
     const idx = (id - this.firstEpoch) / this.factor;
     if (this.epoch.getAt(idx)) return idx;
     return undefined;

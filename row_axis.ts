@@ -893,7 +893,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
           this.lastEpochIdxInUse + 1,
         ).shrink(this.firstEpochIdxInUse);
         this.firstEpoch += this.firstEpochIdxInUse * this.factor;
-        this.lastEpochIdxInUse -= this.firstEpochIdxInUse - 1;
+        this.lastEpochIdxInUse -= this.firstEpochIdxInUse;
         this.firstEpochIdxInUse = 0;
       }
       if (this.lastEpochIdxInUse !== this.epoch.length - 1) {

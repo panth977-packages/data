@@ -785,12 +785,12 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   }
   optimize(opt: EpochAxisOpt): this {
     if (!this._used) this.factor = opt.gap;
-    opt.gte = Math.floor(opt.gte / this.factor) * this.factor;
-    opt.lte = Math.ceil(opt.lte / this.factor) * this.factor;
+    opt.gte = this.normalizeId(opt.gte);
+    this.setFirst(opt.gte);
+    opt.lte = this.normalizeId(opt.lte);
     const size = (opt.lte - opt.gte) / opt.gap;
     const needMore = size - (this.epoch.length - this._used);
     if (needMore > 0) this.expand(needMore);
-    this.setFirst(opt.gte);
     return this;
   }
   private normalizeId(id: number): number {

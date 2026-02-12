@@ -94,13 +94,11 @@ export abstract class RowAxis<
   protected abstract getIdIndex(): IterableIterator<number>;
 
   expandCol<K extends keyof C>(topic: K, add: number, useEmpty = false) {
-    if (!useEmpty) {
-      this.columns[topic].expand(add);
-    } else {
-      this.columns[topic].expand(
-        add - (this.columns[topic].capacity - this.columns[topic].used),
-      );
+    if (useEmpty) {
+      add = add - (this.columns[topic].capacity - this.columns[topic].used);
     }
+    if (add <= 0) return;
+    this.columns[topic].expand(add);
   }
 
   rows(type: "[row,rIdx]"): IterableIterator<[RT, number]>;

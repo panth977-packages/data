@@ -93,8 +93,14 @@ export abstract class RowAxis<
   protected abstract getIds(): IterableIterator<RT>;
   protected abstract getIdIndex(): IterableIterator<number>;
 
-  expandCol<K extends keyof C>(topic: K, add: number) {
-    this.columns[topic].expand(add);
+  expandCol<K extends keyof C>(topic: K, add: number, useEmpty = false) {
+    if (!useEmpty) {
+      this.columns[topic].expand(add);
+    } else {
+      this.columns[topic].expand(
+        add - (this.columns[topic].capacity - this.columns[topic].used),
+      );
+    }
   }
 
   rows(type: "[row,rIdx]"): IterableIterator<[RT, number]>;
@@ -321,7 +327,7 @@ export abstract class RowAxis<
     const filteredRows = create(rows);
     const cols = [];
     for (const topic in filteredRows.columns) {
-      filteredRows.expandCol(topic, this.usedOfCol(topic));
+      filteredRows.expandCol(topic, this.usedOfCol(topic), true);
       for (const [col, cIdx] of this.cols(topic, "[col,cIdx]")) {
         cols.push([cIdx, filteredRows.getCIdx(topic, col, true)] as const);
       }

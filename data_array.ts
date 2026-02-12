@@ -10,6 +10,7 @@ export abstract class DataArr<DT> {
     endIndex: number,
   ): this;
   abstract expand(add: number): this;
+  abstract shrink(remove: number): this;
   abstract fill(value: DT, startIndex?: number, endIndex?: number): this;
   abstract clear(startIndex?: number, endIndex?: number): this;
   abstract getAt(index: number): DT | undefined;
@@ -83,6 +84,15 @@ export class StrDataArray extends DataArr<string> {
     const data = new Uint16Array(this.data.length + add);
     data.set(this.data);
     data.fill(StrDataArray.undefined, this.data.length);
+    this.data = data;
+    return this;
+  }
+  shrink(remove: number): this {
+    if (remove < 1 || remove > this.data.length) {
+      throw new Error("Cannot reduce space");
+    }
+    const data = new Uint16Array(this.data.length - remove);
+    data.set(this.data.subarray(0, this.data.length - remove));
     this.data = data;
     return this;
   }
@@ -185,6 +195,15 @@ export class FloatDataArray extends DataArr<number> {
     this.data = data;
     return this;
   }
+  shrink(remove: number): this {
+    if (remove < 1 || remove > this.data.length) {
+      throw new Error("Cannot reduce space");
+    }
+    const data = new Float32Array(this.data.length - remove);
+    data.set(this.data.subarray(0, this.data.length - remove));
+    this.data = data;
+    return this;
+  }
   fill(value: number, startIndex?: number, endIndex?: number): this {
     this.data.fill(value, startIndex, endIndex);
     return this;
@@ -203,6 +222,96 @@ export class FloatDataArray extends DataArr<number> {
   }
   delAt(index: number): void {
     this.data[index] = FloatDataArray.undefined;
+  }
+
+  valToStr(val: number | undefined): string {
+    return val?.toFixed(4) ?? "";
+  }
+}
+export class IntDataArray extends DataArr<number> {
+  private data: Uint32Array;
+  private static id: ArrayBuffer = IdVersionParser.create("IntDataArray", 1);
+  private static undefined: number = -(2 ** 49);
+  protected static encode(float: IntDataArray): ArrayBuffer {
+    const data = Parsers.Uint32Array.encode(float.data);
+    return Parsers.ArrayBufferList.encode([this.id, data]);
+  }
+  protected static decode(buff: ArrayBuffer): IntDataArray {
+    const [id, data] = Parsers.ArrayBufferList.decode(buff);
+    IdVersionParser.check(id, this.id);
+    const float = new IntDataArray();
+    float.data = Parsers.Uint32Array.decode(data);
+    return float;
+  }
+  protected static create(value?: IntDataArray): IntDataArray {
+    return new IntDataArray(value);
+  }
+  protected static check(value: unknown): value is IntDataArray {
+    return value instanceof IntDataArray;
+  }
+
+  static parser(): GenericParser<IntDataArray> {
+    return new GenericParser({
+      encode: IntDataArray.encode.bind(IntDataArray),
+      decode: IntDataArray.decode.bind(IntDataArray),
+      create: IntDataArray.create.bind(IntDataArray),
+      check: IntDataArray.check.bind(IntDataArray),
+    });
+  }
+  constructor(from?: IntDataArray) {
+    super();
+    if (!from) {
+      this.data = new Uint32Array(0).fill(IntDataArray.undefined);
+    } else {
+      this.data = new Uint32Array(from.data);
+    }
+  }
+  get length(): number {
+    return this.data.length;
+  }
+  copy(): this {
+    return new IntDataArray(this) as this;
+  }
+
+  copyWithin(targetIndex: number, startIndex: number, endIndex: number): this {
+    this.data.copyWithin(targetIndex, startIndex, endIndex);
+    return this;
+  }
+  expand(add: number): this {
+    if (add < 1) throw new Error("Cannot reduce space");
+    const data = new Uint32Array(this.data.length + add);
+    data.set(this.data);
+    data.fill(IntDataArray.undefined, this.data.length);
+    this.data = data;
+    return this;
+  }
+  shrink(remove: number): this {
+    if (remove < 1 || remove > this.data.length) {
+      throw new Error("Cannot reduce space");
+    }
+    const data = new Uint32Array(this.data.length - remove);
+    data.set(this.data.subarray(0, this.data.length - remove));
+    this.data = data;
+    return this;
+  }
+  fill(value: number, startIndex?: number, endIndex?: number): this {
+    this.data.fill(value, startIndex, endIndex);
+    return this;
+  }
+  clear(startIndex?: number, endIndex?: number): this {
+    this.data.fill(IntDataArray.undefined, startIndex, endIndex);
+    return this;
+  }
+  getAt(index: number): number | undefined {
+    const val = this.data[index];
+    if (val === IntDataArray.undefined) return undefined;
+    return val;
+  }
+  setAt(index: number, value: number): void {
+    this.data[index] = value;
+  }
+  delAt(index: number): void {
+    this.data[index] = IntDataArray.undefined;
   }
 
   valToStr(val: number | undefined): string {
@@ -275,6 +384,26 @@ export class FlagDataArray extends DataArr<true> {
       this.data = newData;
     }
     this._length = _length;
+    return this;
+  }
+  shrink(remove: number): this {
+    if (remove < 1 || remove > this._length) {
+      throw new Error("Cannot reduce space");
+    }
+    const newLength = this._length - remove;
+    const newByteLength = Math.ceil(newLength / 8);
+    if (newByteLength < this.data.length) {
+      const newData = new Uint8Array(newByteLength);
+      newData.set(this.data.subarray(0, newByteLength));
+      this.data = newData;
+      const remainingBits = newLength % 8;
+      if (remainingBits > 0) {
+        this.data[newByteLength - 1] &= (1 << remainingBits) - 1;
+      }
+    } else {
+      this.clear(newLength, this._length);
+    }
+    this._length = newLength;
     return this;
   }
 

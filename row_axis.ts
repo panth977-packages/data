@@ -23,6 +23,7 @@ export abstract class RowAxis<
     parser: { [K in keyof C]: GenericParser<C[K]> },
     rowAxis: RowAxis<RT, C>,
   ): ArrayBuffer[] {
+    rowAxis.shrink();
     const topics = Object.keys(rowAxis.columns);
     const topicsBuffer = Parsers.StringList.encode(topics);
     const columnsBuffers = Parsers.ArrayBufferList.encode(
@@ -85,6 +86,7 @@ export abstract class RowAxis<
   protected abstract get capacity(): number;
   protected abstract get used(): number;
   protected abstract expand(add: number): this;
+  protected abstract shrink(): this;
   protected abstract make(id: RT): this;
   protected abstract remove(id: RT): this;
   protected abstract getIdAt(idx: number): RT | undefined;
@@ -99,6 +101,10 @@ export abstract class RowAxis<
     }
     if (add <= 0) return;
     this.columns[topic].expand(add);
+  }
+  shrinkCol<K extends keyof C>(topic: K, remove: number) {
+    if (remove <= 0) return;
+    this.columns[topic].shrink();
   }
 
   rows(type: "[row,rIdx]"): IterableIterator<[RT, number]>;
@@ -409,9 +415,9 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     parser: { [K in keyof C]: GenericParser<C[K]> },
     epochAxis: RelativeEpochAxis<C>,
   ): ArrayBuffer {
+    const columns = RowAxis._encode(parser, epochAxis);
     const minEpoch = Parsers.Number.encode(epochAxis.minEpoch);
     const epoch = Parsers.Uint32Array.encode(epochAxis.epoch);
-    const columns = RowAxis._encode(parser, epochAxis);
     return Parsers.ArrayBufferList.encode([
       this.id,
       minEpoch,
@@ -509,6 +515,7 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
       idx--
     ) {
       this.unusedEpochIdx.push(idx);
+      this.unusedEpochIdx = this.unusedEpochIdx.sort((x, y) => y - x);
     }
     const epoch = new Uint32Array(this.epoch.length + add).fill(
       RelativeEpochAxis.Undefined,
@@ -520,6 +527,78 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     }
     return this;
   }
+  protected shrink(): this {
+    if (this.unusedEpochIdx.length) {
+      let currentEpochLen = 0;
+      let newEpochLen = 0;
+      const cluster: {
+        delta: number;
+        oldIdx: number;
+        newIdx: number;
+        cnt: number;
+      }[] = [];
+      for (; currentEpochLen < this.epoch.length; currentEpochLen++) {
+        if (this.epoch[currentEpochLen] !== RelativeEpochAxis.Undefined) {
+          const delta = currentEpochLen - newEpochLen;
+          if (!delta) {
+            //
+          } else if (cluster[cluster.length - 1]?.delta === delta) {
+            cluster[cluster.length - 1].cnt++;
+          } else {
+            cluster.push({
+              delta: delta,
+              oldIdx: currentEpochLen,
+              newIdx: newEpochLen,
+              cnt: 1,
+            });
+          }
+          newEpochLen++;
+        }
+      }
+      if (this.epochMapping.size) {
+        for (const { cnt, newIdx, oldIdx } of cluster) {
+          for (const topic in this.columns) {
+            this.columns[topic].copyWithinFromRow(
+              currentEpochLen + newIdx,
+              currentEpochLen + oldIdx,
+              currentEpochLen + oldIdx + cnt,
+            ).clearFromRow(
+              currentEpochLen + newIdx + cnt,
+              currentEpochLen + oldIdx + cnt,
+            );
+          }
+        }
+        for (const topic in this.columns) {
+          this.columns[topic].copyWithinFromRow(
+            newEpochLen,
+            currentEpochLen,
+            currentEpochLen + newEpochLen,
+          ).shrinkRowSize(this.epoch.length - newEpochLen);
+        }
+        this.epoch.copyWithin(
+          newEpochLen,
+          currentEpochLen,
+          currentEpochLen + newEpochLen,
+        );
+        const epoch = new Uint32Array(newEpochLen);
+        epoch.set(this.epoch.subarray(0, newEpochLen));
+        this.epoch = epoch;
+      }
+      this.epochMapping = new Map();
+      for (let i = 0; i < this.epoch.length; i++) {
+        const epoch = this.epoch[i];
+        if (epoch !== undefined) {
+          this.epochMapping.set(epoch, i);
+        }
+      }
+      this.unusedEpochIdx = [];
+    }
+    for (const k in this.columns) {
+      this.columns[k].shrink();
+    }
+    return this;
+  }
+
   private setMin(epoch: number) {
     epoch--;
     if (!this.minEpoch) {
@@ -610,10 +689,10 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     parser: { [K in keyof C]: GenericParser<C[K]> },
     epochAxis: PredefinedEpochAxis<C>,
   ): ArrayBuffer {
+    const columns = RowAxis._encode(parser, epochAxis);
     const firstEpoch = Parsers.Number.encode(epochAxis.firstEpoch);
     const factor = Parsers.Number.encode(epochAxis.factor);
     const epoch = PredefinedEpochAxis.epochParser.encode(epochAxis.epoch);
-    const columns = RowAxis._encode(parser, epochAxis);
     return Parsers.ArrayBufferList.encode([
       this.id,
       firstEpoch,
@@ -791,9 +870,38 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     return this.epoch.length;
   }
   protected expand(add: number): this {
+    if (add < 1) throw new Error("Cannot reduce space");
     this.epoch.expand(add);
     for (const k in this.columns) {
       this.columns[k].expandRowSize(add);
+    }
+    return this;
+  }
+  protected shrink(): this {
+    if (this._used > 0) {
+      if (this.firstEpochIdxInUse !== 0) {
+        for (const topic in this.columns) {
+          this.columns[topic].copyWithinFromRow(
+            0,
+            this.firstEpochIdxInUse,
+            this.lastEpochIdxInUse,
+          ).shrinkRowSize(this.firstEpochIdxInUse);
+        }
+        this.epoch.copyWithin(
+          0,
+          this.firstEpochIdxInUse,
+          this.lastEpochIdxInUse,
+        ).shrink(this.firstEpochIdxInUse);
+        this.firstEpoch += this.factor * this.firstEpochIdxInUse;
+        this.lastEpochIdxInUse -= this.firstEpochIdxInUse;
+        this.firstEpochIdxInUse = 0;
+      }
+      if (this.lastEpochIdxInUse !== this.epoch.length) {
+        this.epoch.shrink((this.epoch.length - 1) - this.lastEpochIdxInUse);
+      }
+    }
+    for (const k in this.columns) {
+      this.columns[k].shrink();
     }
     return this;
   }

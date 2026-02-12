@@ -51,6 +51,7 @@ export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
   abstract get capacity(): number;
   abstract copy(): this;
   abstract expand(add: number): this;
+  abstract shrink(): this;
   abstract make(id: CT): this;
   abstract remove(id: CT): this;
   abstract getIdAt(idx: number): CT | undefined;
@@ -71,6 +72,12 @@ export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
     if (add < 1) throw new Error("Cannot add");
     this.rowSize += add;
     if (this.capacity > 0) this.data.expand(add * this.capacity);
+    return this;
+  }
+  shrinkRowSize(remove: number): this {
+    if (remove < 1 && remove > this.rowSize) throw new Error("Cannot subtract");
+    this.rowSize -= remove;
+    if (this.capacity > 0) this.data.shrink(remove * this.capacity);
     return this;
   }
   copyWithinFromRow(targetIdx: number, startIdx: number, endIdx: number): this {
@@ -213,15 +220,71 @@ export class KeyAxis<DC extends DataArr<any>> extends ColumnAxis<string, DC> {
           .copyWithin(
             tIdx * newKeyLen,
             tIdx * currentKeyLen,
-            (tIdx + 1) * currentKeyLen,
+            tIdx * currentKeyLen + currentKeyLen,
           )
           .clear(tIdx * newKeyLen + currentKeyLen, (tIdx + 1) * newKeyLen);
       }
     }
     for (let idx = this.keys.length + add - 1; idx >= this.keys.length; idx--) {
       this.unusedKeyIdx.push(idx);
+      this.unusedKeyIdx = this.unusedKeyIdx.sort((x, y) => y - x);
     }
     this.keys = [...this.keys, ...new Array(add).fill(KeyAxis.Undefined)];
+    return this;
+  }
+  shrink(): this {
+    if (!this.unusedKeyIdx.length) return this;
+    const keysIdx = this.keys.filter((key) => key !== KeyAxis.Undefined).map((
+      key,
+      newIdx,
+    ) => ({ key, newIdx, oldIdx: this.keyMapping.get(key)! }));
+    if (this.rowSize) {
+      const changed = keysIdx.filter((x) => x.newIdx != x.oldIdx); // asec
+      const currentKeyLen = this.keys.length;
+      const newKeyLen = keysIdx.length;
+      const cluster: {
+        delta: number;
+        oldIdx: number;
+        newIdx: number;
+        cnt: number;
+      }[] = [];
+      for (const ch of changed) {
+        const delta = ch.newIdx - ch.oldIdx;
+        if (cluster[cluster.length - 1]?.delta === delta) {
+          cluster[cluster.length - 1].cnt++;
+        } else {
+          cluster.push({
+            delta: delta,
+            oldIdx: ch.oldIdx,
+            newIdx: ch.newIdx,
+            cnt: 1,
+          });
+        }
+      }
+      for (const { cnt, newIdx, oldIdx } of cluster) {
+        for (let tIdx = this.rowSize - 1; tIdx > -1; tIdx--) {
+          this.data.copyWithin(
+            tIdx * currentKeyLen + newIdx,
+            tIdx * currentKeyLen + oldIdx,
+            tIdx * currentKeyLen + oldIdx + cnt,
+          ).clear(
+            tIdx * currentKeyLen + newIdx + cnt,
+            tIdx * currentKeyLen + oldIdx + cnt,
+          );
+        }
+      }
+      for (let tIdx = 0; tIdx < this.rowSize; tIdx++) {
+        this.data.copyWithin(
+          tIdx * newKeyLen,
+          tIdx * currentKeyLen,
+          tIdx * currentKeyLen + newKeyLen,
+        );
+      }
+      this.data.shrink(this.rowSize * (this.keys.length - keysIdx.length));
+    }
+    this.keys = keysIdx.map((x) => x.key);
+    this.keyMapping = new Map(keysIdx.map((x) => [x.key, x.newIdx]));
+    this.unusedKeyIdx = [];
     return this;
   }
   make(id: string): this {

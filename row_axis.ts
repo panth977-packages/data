@@ -138,6 +138,7 @@ export abstract class RowAxis<
     }
     if (type === "col") {
       yield* column.getIds();
+      return;
     }
     for (const cIdx of column.getIdIndex()) {
       yield [topic, cIdx];

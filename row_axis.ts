@@ -353,7 +353,6 @@ export type RowAxisClass<
   C extends Record<string, ColumnAxis<any, any>>,
   I extends RowAxis<RT, C>,
 > = { new (from?: I): I };
-export type EpochAxisOpt = { gte: number; lte: number; gap: number };
 export abstract class EpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   extends RowAxis<number, C> {
   static readonly minPer: Readonly<{
@@ -399,7 +398,6 @@ export abstract class EpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     day: 86400000,
     week: 604800000,
   });
-  abstract optimize(otp: EpochAxisOpt): this;
   constructor(from: EpochAxis<C> | C) {
     super(from);
   }
@@ -492,10 +490,9 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
       this.unusedEpochIdx = [];
     }
   }
-  optimize(opt: EpochAxisOpt): this {
+  optimize(opt: { gte: number; count: number }): this {
     this.setMin(opt.gte);
-    const size = Math.ceil((opt.lte - opt.gte) / opt.gap);
-    const needMore = size - (this.epoch.length - this.epochMapping.size);
+    const needMore = opt.count - (this.epoch.length - this.epochMapping.size);
     if (needMore > 0) this.expand(needMore);
     return this;
   }
@@ -784,7 +781,7 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
       this.firstEpochIdxInUse = -1;
     }
   }
-  optimize(opt: EpochAxisOpt): this {
+  optimize(opt: { gte: number; lte: number; gap: number }): this {
     if (!this._used) this.factor = opt.gap;
     opt.gte = this.normalizeId(opt.gte);
     this.setFirst(opt.gte);

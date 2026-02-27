@@ -10,7 +10,7 @@ export function runRowAxisQA() {
   const table = new RelativeEpochAxis({
     temp: new KeyAxis(new FloatDataArray()).expand(2), // Space for 2 sensors
     status: new KeyAxis(new StrDataArray()).expand(2), // Space for 2 strings
-  }).optimize({ gte: 1000, lte: 5000, gap: 1000 });
+  }).optimize({ gte: 1000, count: 5 });
 
   // CRITICAL: Must expand rows before creating them
 

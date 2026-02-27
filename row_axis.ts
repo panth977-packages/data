@@ -494,7 +494,7 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   }
   optimize(opt: EpochAxisOpt): this {
     this.setMin(opt.gte);
-    const size = (opt.lte - opt.gte) / opt.gap;
+    const size = Math.ceil((opt.lte - opt.gte) / opt.gap);
     const needMore = size - (this.epoch.length - this.epochMapping.size);
     if (needMore > 0) this.expand(needMore);
     return this;

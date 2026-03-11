@@ -324,7 +324,7 @@ export class FlagDataArray extends DataArr<true> {
   private static id: ArrayBuffer = IdVersionParser.create("FlagDataArray", 1);
   protected static encode(flag: FlagDataArray): ArrayBuffer {
     const data = Parsers.Uint8Array.encode(flag.data);
-    const len = Parsers.Number.encode(flag._length);
+    const len = Parsers.String.encode("" + flag._length);
     return Parsers.ArrayBufferList.encode([this.id, data, len]);
   }
   protected static decode(buff: ArrayBuffer): FlagDataArray {
@@ -332,7 +332,7 @@ export class FlagDataArray extends DataArr<true> {
     IdVersionParser.check(id, this.id);
     const flag = new FlagDataArray();
     flag.data = Parsers.Uint8Array.decode(data);
-    flag._length = Parsers.Number.decode(len);
+    flag._length = +Parsers.String.decode(len);
     return flag;
   }
   protected static create(flag?: FlagDataArray): FlagDataArray {
@@ -494,5 +494,95 @@ export class FlagDataArray extends DataArr<true> {
 
   valToStr(val: true | undefined): string {
     return val ? "·" : "";
+  }
+}
+export class JsonNumDataArray extends DataArr<number> {
+  private data: number[];
+  private static id: ArrayBuffer = IdVersionParser.create(
+    "JsonNumDataArray",
+    1,
+  );
+  protected static encode(float: JsonNumDataArray): ArrayBuffer {
+    const data = Parsers.String.encode(JSON.stringify(float.data));
+    return Parsers.ArrayBufferList.encode([this.id, data]);
+  }
+  protected static decode(buff: ArrayBuffer): JsonNumDataArray {
+    const [id, data] = Parsers.ArrayBufferList.decode(buff);
+    IdVersionParser.check(id, this.id);
+    const float = new JsonNumDataArray();
+    float.data = (JSON.parse(Parsers.String.decode(data)) as any[]).map((x) =>
+      x == null ? NaN : +x
+    );
+    return float;
+  }
+  protected static create(value?: JsonNumDataArray): JsonNumDataArray {
+    return new JsonNumDataArray(value);
+  }
+  protected static check(value: unknown): value is JsonNumDataArray {
+    return value instanceof JsonNumDataArray;
+  }
+
+  static parser(): GenericParser<JsonNumDataArray> {
+    return new GenericParser({
+      encode: JsonNumDataArray.encode.bind(JsonNumDataArray),
+      decode: JsonNumDataArray.decode.bind(JsonNumDataArray),
+      create: JsonNumDataArray.create.bind(JsonNumDataArray),
+      check: JsonNumDataArray.check.bind(JsonNumDataArray),
+    });
+  }
+  constructor(from?: JsonNumDataArray) {
+    super();
+    if (!from) {
+      this.data = [];
+    } else {
+      this.data = [...from.data];
+    }
+  }
+  get length(): number {
+    return this.data.length;
+  }
+  copy(): this {
+    return new JsonNumDataArray(this) as this;
+  }
+
+  copyWithin(targetIndex: number, startIndex: number, endIndex: number): this {
+    this.data.copyWithin(targetIndex, startIndex, endIndex);
+    return this;
+  }
+  expand(add: number): this {
+    if (add < 1) throw new Error("Cannot reduce space");
+    this.data.length = this.data.length + add;
+    this.data.fill(NaN, this.data.length);
+    return this;
+  }
+  shrink(remove: number): this {
+    if (remove < 1 || remove > this.data.length) {
+      throw new Error("Cannot reduce space");
+    }
+    this.data.length = this.data.length - remove;
+    return this;
+  }
+  fill(value: number, startIndex?: number, endIndex?: number): this {
+    this.data.fill(value, startIndex, endIndex);
+    return this;
+  }
+  clear(startIndex?: number, endIndex?: number): this {
+    this.data.fill(NaN, startIndex, endIndex);
+    return this;
+  }
+  getAt(index: number): number | undefined {
+    const val = this.data[index];
+    if (isNaN(val)) return undefined;
+    return val;
+  }
+  setAt(index: number, value: number): void {
+    this.data[index] = value;
+  }
+  delAt(index: number): void {
+    this.data[index] = NaN;
+  }
+
+  valToStr(val: number | undefined): string {
+    return val?.toFixed(4) ?? "";
   }
 }

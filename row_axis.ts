@@ -347,12 +347,6 @@ export abstract class RowAxis<
     return filteredRows;
   }
 }
-export type RowAxisClass<
-  O,
-  RT,
-  C extends Record<string, ColumnAxis<any, any>>,
-  I extends RowAxis<RT, C>,
-> = { new (from?: I): I };
 export abstract class EpochAxis<C extends Record<string, ColumnAxis<any, any>>>
   extends RowAxis<number, C> {
   static readonly minPer: Readonly<{
@@ -415,7 +409,7 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     epochAxis: RelativeEpochAxis<C>,
   ): ArrayBuffer {
     const columns = RowAxis._encode(parser, epochAxis);
-    const minEpoch = Parsers.Number.encode(epochAxis.minEpoch);
+    const minEpoch = Parsers.String.encode('' + epochAxis.minEpoch);
     const epoch = Parsers.Uint32Array.encode(epochAxis.epoch);
     return Parsers.ArrayBufferList.encode([
       this.id,
@@ -435,7 +429,7 @@ export class RelativeEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     const epochAxis = new RelativeEpochAxis(
       RowAxis._decode(parser, columns),
     );
-    epochAxis.minEpoch = Parsers.Number.decode(minEpoch);
+    epochAxis.minEpoch = +Parsers.String.decode(minEpoch);
     epochAxis.epoch = Parsers.Uint32Array.decode(epoch);
     for (let i = 0; i < epochAxis.epoch.length; i++) {
       if (epochAxis.epoch[i] == 0) {
@@ -688,8 +682,8 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     epochAxis: PredefinedEpochAxis<C>,
   ): ArrayBuffer {
     const columns = RowAxis._encode(parser, epochAxis);
-    const firstEpoch = Parsers.Number.encode(epochAxis.firstEpoch);
-    const factor = Parsers.Number.encode(epochAxis.factor);
+    const firstEpoch = Parsers.String.encode('' + epochAxis.firstEpoch);
+    const factor = Parsers.String.encode('' + epochAxis.factor);
     const epoch = PredefinedEpochAxis.epochParser.encode(epochAxis.epoch);
     return Parsers.ArrayBufferList.encode([
       this.id,
@@ -709,8 +703,8 @@ export class PredefinedEpochAxis<C extends Record<string, ColumnAxis<any, any>>>
     const epochAxis = new PredefinedEpochAxis(
       RowAxis._decode(parser, columns),
     );
-    epochAxis.firstEpoch = Parsers.Number.decode(firstEpoch);
-    epochAxis.factor = Parsers.Number.decode(factor);
+    epochAxis.firstEpoch = +Parsers.String.decode(firstEpoch);
+    epochAxis.factor = +Parsers.String.decode(factor);
     epochAxis.epoch = PredefinedEpochAxis.epochParser.decode(epoch);
     for (const idx of epochAxis.epoch.getFlagedIdx()) {
       if (epochAxis._used === 0) {

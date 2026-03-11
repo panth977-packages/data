@@ -10,7 +10,7 @@ export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
     columnAxis: ColumnAxis<CT, DC>,
   ): ArrayBuffer[] {
     const data = parser.encode(columnAxis.data);
-    const rows = Parsers.Number.encode(columnAxis.rowSize);
+    const rows = Parsers.String.encode("" + columnAxis.rowSize);
     return [this._id, data, rows];
   }
   protected static _decode<DC extends DataArr<any>>(
@@ -24,7 +24,7 @@ export abstract class ColumnAxis<CT, DC extends DataArr<any>> {
     IdVersionParser.check(id, this._id);
     return {
       data: parser.decode(data),
-      rowSize: Parsers.Number.decode(rows),
+      rowSize: +Parsers.String.decode(rows),
     };
   }
   protected static _create<DC extends DataArr<any>>(

@@ -292,17 +292,17 @@ export class ArrayBufferListParser extends Parser<ArrayBuffer[]> {
   }
 }
 
-export class NumberParser extends Parser<number> {
+export class StringParser extends Parser<string> {
   private encoder = new TextEncoder();
   private decoder = new TextDecoder();
 
-  encode(value: number): ArrayBuffer {
-    const encodedString = this.encoder.encode("" + value);
+  encode(value: string): ArrayBuffer {
+    const encodedString = this.encoder.encode(value);
     return encodedString.buffer;
   }
 
-  decode(data: ArrayBuffer): number {
-    return +this.decoder.decode(data);
+  decode(data: ArrayBuffer): string {
+    return this.decoder.decode(data);
   }
 }
 
@@ -343,7 +343,7 @@ export const Parsers: Readonly<{
   Uint32Array: Uint32ArrayParser;
   IdVersion: IdVersionParser;
   ArrayBufferList: ArrayBufferListParser;
-  Number: NumberParser;
+  String: StringParser;
 }> = Object.freeze({
   StringList: new StringListParser(),
   Uint16Array: new Uint16ArrayParser(),
@@ -352,5 +352,5 @@ export const Parsers: Readonly<{
   Uint32Array: new Uint32ArrayParser(),
   IdVersion: new IdVersionParser(),
   ArrayBufferList: new ArrayBufferListParser(),
-  Number: new NumberParser(),
+  String: new StringParser(),
 });

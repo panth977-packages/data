@@ -1,6 +1,6 @@
 {
   "name": "@panth977/data",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "license": "MIT",
   "exports": "./mod.ts",
   "tasks": {
